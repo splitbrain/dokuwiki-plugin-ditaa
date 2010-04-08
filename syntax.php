@@ -118,7 +118,12 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
             $img = ml($img,array('w'=>$data['width'],'h'=>$data['height']));
         }
 
-        $R->doc .= '<img src="'.$img.'" alt="x">';
+        $R->doc .= '<img src="'.$img.'" class="media'.$data['align'].'" alt=""';
+        if($data['width'])  $R->doc .= ' width="'.$data['width'].'"';
+        if($data['height']) $R->doc .= ' height="'.$data['height'].'"';
+        if($data['align'] == 'right') $ret .= ' align="right"';
+        if($data['align'] == 'left')  $ret .= ' align="left"';
+        $R->doc .= '/>';
     }
 
 
