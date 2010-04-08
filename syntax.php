@@ -23,7 +23,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
 
     var $ditaa_data = '';
 
-    var $pathToJava = "/opt/blackdown-jdk-1.4.2.02/bin/java"; 
+    var $pathToJava = "/opt/blackdown-jdk-1.4.2.02/bin/java";
 
     var $pathToDitaa = "/var/www/sst.intern.editable/dokuwiki/htdocs/ditaa.jar";
 
@@ -46,84 +46,94 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
 
     /**
      * Where to sort in?
-     */ 
+     */
     function getSort(){
         return 200;
     }
 
 
     /**
-     * Connect pattern to lexer (Beginning of parsing)
+     * Connect pattern to lexer
      */
 
     function connectTo($mode) {
-        $this->Lexer->addEntryPattern('<ditaa.*?>(?=.*?\x3C/ditaa\x3E)', $mode, 'plugin_ditaa');
+        $this->Lexer->addSpecialPattern('<ditaa.*?>\n.*?\n</ditaa>',$mode,'plugin_ditaa');
     }
 
-    function postConnect() {
-        $this->Lexer->addExitPattern('</ditaa>', 'plugin_ditaa');
-    }
 
 
     /**
      * Handle the match
      */
-    function handle($match, $state, $pos, &$handler)
-    {
+    function handle($match, $state, $pos, &$handler) {
+        // prepare default data
+        $return = array(
+                        'data'      => '',
+                        'width'     => 0,
+                        'height'    => 0,
+                        'antialias' => true,
+                        'edgesep'   => true,
+                        'round'     => false,
+                        'shadow'    => true,
+                        'scale'     => 1,
+                        'align'     => '',
+                       );
 
-        switch ($state) {
-            case DOKU_LEXER_ENTER:
-                    preg_match('/width=([0-9]+)/i', substr($match,6,-1), $match_width);
-                    preg_match('/height=([0-9]+)/i', substr($match,6,-1), $match_height);
-                    preg_match('/name=([a-zA-Z_0-9]+)/i', substr($match,6,-1), $match_name);
-                    return array('begin', $match_name[1], $match_width[1], $match_height[1]);
-                    break;
-            case DOKU_LEXER_EXIT:
-                    return array('end');
-                    break;
-            case DOKU_LEXER_UNMATCHED:
-                    return array('data', $match);
-                    break;
 
+        // prepare input
+        $lines = explode("\n",$match);
+        $conf = array_shift($lines);
+        array_pop($lines);
+
+        // match config options
+        if(preg_match('/\b(left|center|right)\b/i',$conf,$match)) $return['align'] = $match[1];
+        if(preg_match('/\b(\d+)x(\d+)\b/',$conf,$match)){
+            $return['width']  = $match[1];
+            $return['height'] = $match[2];
         }
+        if(preg_match('/\b(\d+)X\b/',$conf,$match)) $return['scale']  = $match[1];
+        if(preg_match('/\bwidth=([0-9]+)\b/i', $conf,$match)) $return['width'] = $match[1];
+        if(preg_match('/\bheight=([0-9]+)\b/i', $conf,$match)) $return['height'] = $match[1];
+        // match boolean toggles
+        if(preg_match_all('/\b(no)?(antialias|edgesep|round|shadow)\b/i',$conf,$matches,PREG_SET_ORDER)){
+            foreach($matches as $match){
+                $return[$match[2]] = ! $match[1];
+            }
+        }
+
+        $return['data'] = join("\n",$lines);
+
+        return $return;
     }
 
     /**
      * Create output
      */
-    function render($format, &$renderer, $data) 
-    {
+    function render($format, &$R, $data) {
+        if($format != 'xhtml') return;
 
-        global $conf;
+        // prepare data for ditaa.org
+        $pass = array(
+            'grid'  => $data['data'],
+            'scale' => $data['scale']
+        );
+        if(!$data['antialias']) $pass['A'] = 'on';
+        if(!$data['shadow'])    $pass['S'] = 'on';
+        if($data['round'])      $pass['r'] = 'on';
+        if(!$data['edgesep'])   $pass['E'] = 'on';
+        $pass['timeout'] = 25;
 
-        if ($data[0] == 'begin') {
+        $img = 'http://ditaa.org/ditaa/render?'.buildURLparams($pass,'&');
+        $img = ml($img,array('w'=>$data['width'],'h'=>$data['height']));
 
-            list($state, $name, $width, $height) = $data;
-
-        } else if ($data[0] == 'data') {
-
-            list($state, $mydata) = $data;
-
-        } else {
-
-            $state = $data[0];
-
-        }
-
-        switch($state) {
-
-            case 'begin': return $this->_ditaa_begin($renderer, $name, $width, $height);
-            case 'data' : return $this->_ditaa_data($mydata);
-            case 'end'  : return $this->_ditaa_end($renderer);
-
-        }
+        $R->doc .= '<img src="'.$img.'" alt="x">';
 
     }
 
     /**
      * Store values for later ditaa-rendering
      *
-     * @param object    $renderer The dokuwiki-renderer 
+     * @param object    $renderer The dokuwiki-renderer
      * @param string    $name   The name for the ditaa-object
      * @param width     $width  The width for the ditaa-object
      * @param height    $height The height for the ditaa-object
@@ -204,7 +214,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
         $md5 = md5_file($tempfile.'.txt');
 
         $mediadir = $conf["mediadir"]."/".str_replace(":", "/",$INFO['namespace'] );
-        
+
         if (!is_dir($mediadir)) {
             umask(002);
             mkdir($mediadir,0777);
@@ -213,11 +223,11 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
         $imagefile = $mediadir.'/ditaa_'.$this->ditaa_name.'_'.$md5.'.png';
 
         if ( !file_exists($imagefile)) {
-            
+
             $cmd = $this->pathToJava." -Djava.awt.headless=true -jar ".$this->pathToDitaa." ".$tempfile.".txt ".$tempfile.".png";
 
             exec($cmd, $output, $error);
-            
+
             if ($error != 0) {
                 $renderer->doc .= '---ERROR CONVERTING DIAGRAM---';
                    return false;
@@ -230,7 +240,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
             if ( !copy($tempfile.'.png', $imagefile) ) {
                 return false;
             }
-    
+
             // Remove input file
             unlink($tempfile.'.png');
             unlink($tempfile);
@@ -252,15 +262,13 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
             $height = $this->ditaa_height;
         }
 
-        $renderer->doc .= $renderer->internalmedia($INFO['namespace'].':ditaa_'.$this->ditaa_name.'_'.$md5.'.png', $this->ditaa_name, NULL, $width, $height, false); 
+        $renderer->doc .= $renderer->internalmedia($INFO['namespace'].':ditaa_'.$this->ditaa_name.'_'.$md5.'.png', $this->ditaa_name, NULL, $width, $height, false);
 
         return true;
-        
+
     }
 
 }
 
 
 
-
-?>
