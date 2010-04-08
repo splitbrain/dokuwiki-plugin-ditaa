@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Ditaa-Plugin: Converts Ascii-Flowcharts into a png-File
  *
@@ -14,21 +13,6 @@ if(!defined('DOKU_PLUGIN')) define('DOKU_PLUGIN',DOKU_INC.'lib/plugins/');
 require_once(DOKU_PLUGIN.'syntax.php');
 
 class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
-
-    var $ditaa_name = '';
-
-    var $ditaa_width = -1;
-
-    var $ditaa_height = -1;
-
-    var $ditaa_data = '';
-
-    var $pathToJava = "/opt/blackdown-jdk-1.4.2.02/bin/java";
-
-    var $pathToDitaa = "/var/www/sst.intern.editable/dokuwiki/htdocs/ditaa.jar";
-
-    var $tempdir = "/tmp";
-
 
     /**
      * What about paragraphs?
@@ -66,6 +50,8 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
      * Handle the match
      */
     function handle($match, $state, $pos, &$handler) {
+        $info = $this->getInfo();
+
         // prepare default data
         $return = array(
                         'data'      => '',
@@ -77,6 +63,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
                         'shadow'    => true,
                         'scale'     => 1,
                         'align'     => '',
+                        'version'   => $info['date'], //forece rebuild of images on update
                        );
 
 
@@ -91,7 +78,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
             $return['width']  = $match[1];
             $return['height'] = $match[2];
         }
-        if(preg_match('/\b(\d+)X\b/',$conf,$match)) $return['scale']  = $match[1];
+        if(preg_match('/\b(\d+(\.\d+)?)X\b/',$conf,$match)) $return['scale']  = $match[1];
         if(preg_match('/\bwidth=([0-9]+)\b/i', $conf,$match)) $return['width'] = $match[1];
         if(preg_match('/\bheight=([0-9]+)\b/i', $conf,$match)) $return['height'] = $match[1];
         // match boolean toggles
@@ -112,160 +99,54 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
     function render($format, &$R, $data) {
         if($format != 'xhtml') return;
 
-        // prepare data for ditaa.org
-        $pass = array(
-            'grid'  => $data['data'],
-            'scale' => $data['scale']
-        );
-        if(!$data['antialias']) $pass['A'] = 'on';
-        if(!$data['shadow'])    $pass['S'] = 'on';
-        if($data['round'])      $pass['r'] = 'on';
-        if(!$data['edgesep'])   $pass['E'] = 'on';
-        $pass['timeout'] = 25;
+        if($this->getConf('java')){
+            // run ditaa on our own server
+            $img = DOKU_BASE.'lib/plugins/ditaa/ditaa.php?'.buildURLparams($data,'&');
+        }else{
+            // use ditaa.org for rendering
+            $pass = array(
+                'grid'  => $data['data'],
+                'scale' => $data['scale']
+            );
+            if(!$data['antialias']) $pass['A'] = 'on';
+            if(!$data['shadow'])    $pass['S'] = 'on';
+            if($data['round'])      $pass['r'] = 'on';
+            if(!$data['edgesep'])   $pass['E'] = 'on';
+            $pass['timeout'] = 25;
 
-        $img = 'http://ditaa.org/ditaa/render?'.buildURLparams($pass,'&');
-        $img = ml($img,array('w'=>$data['width'],'h'=>$data['height']));
+            $img = 'http://ditaa.org/ditaa/render?'.buildURLparams($pass,'&');
+            $img = ml($img,array('w'=>$data['width'],'h'=>$data['height']));
+        }
 
         $R->doc .= '<img src="'.$img.'" alt="x">';
-
     }
 
-    /**
-     * Store values for later ditaa-rendering
-     *
-     * @param object    $renderer The dokuwiki-renderer
-     * @param string    $name   The name for the ditaa-object
-     * @param width     $width  The width for the ditaa-object
-     * @param height    $height The height for the ditaa-object
-     * @return  bool            All parameters are set
-     */
-
-    function _ditaa_begin(&$renderer, $name, $width, $height)
-    {
-        // Check, if name is given
-
-        $name = trim(strtolower($name));
-
-        if ($name == '') {
-
-            $renderer->doc .= '---NO NAME FOR FLOWCHART GIVEN---';
-            return true;
-
-        }
-
-        $width = trim($width);
-        $height = trim($height);
-
-        if (($width != '') && (settype($width, 'int'))) {
-
-            $this->ditaa_width = $width;
-
-        }
-
-        if (($height != '') && (settype($height, 'int'))) {
-
-            $this->ditaa_height = $height;
-
-        }
-
-        $this->ditaa_name = $name;
-
-        $this->ditaa_data = '';
-
-        return true;
-
-    }
 
     /**
-     * Expand the data for the ditaa-object
-     *
-     * @param   string  $data   The data for the ditaa-object
-     * @return  bool            If everything was right
+     * Run the ditaa Java program
      */
+    function _run($data,$cache) {
+        global $conf;
 
-    function _ditaa_data($data)
-    {
+        $temp = tempnam($conf['tmpdir'],'ditaa_');
+        io_saveFile($temp,$data['data']);
 
-        $this->ditaa_data .= $data;
+        $cmd  = $this->getConf('java');
+        $cmd .= ' -Djava.awt.headless=true -jar';
+        $cmd .= ' '.escapeshellarg(dirname(__FILE__).'/ditaa/ditaa0_9.jar'); //ditaa jar
+        $cmd .= ' '.escapeshellarg($temp); //input
+        $cmd .= ' '.escapeshellarg($cache); //output
+        $cmd .= ' -s '.escapeshellarg($data['scale']);
+        if(!$data['antialias']) $cmd .= ' -A';
+        if(!$data['shadow'])    $cmd .= ' -S';
+        if($data['round'])      $cmd .= ' -r';
+        if(!$data['edgesep'])   $cmd .= ' -E';
 
+        exec($cmd, $output, $error);
+        @unlink($temp);
+
+        if ($error != 0) return false;
         return true;
-
-    }
-
-    /**
-     * Render the ditaa-object
-     *
-     * @param object    $renderer   The dokuwiki-Renderer
-     * @return  bool                If everything was right
-     */
-
-    function _ditaa_end(&$renderer)
-    {
-        global $conf, $INFO;
-
-        // Write a text file for ditaa
-
-        $tempfile = tempnam($this->tempdir, 'ditaa_');
-
-        $file = fopen($tempfile.'.txt', 'w');
-        fwrite($file, $this->ditaa_data);
-        fclose($file);
-
-        $md5 = md5_file($tempfile.'.txt');
-
-        $mediadir = $conf["mediadir"]."/".str_replace(":", "/",$INFO['namespace'] );
-
-        if (!is_dir($mediadir)) {
-            umask(002);
-            mkdir($mediadir,0777);
-        }
-
-        $imagefile = $mediadir.'/ditaa_'.$this->ditaa_name.'_'.$md5.'.png';
-
-        if ( !file_exists($imagefile)) {
-
-            $cmd = $this->pathToJava." -Djava.awt.headless=true -jar ".$this->pathToDitaa." ".$tempfile.".txt ".$tempfile.".png";
-
-            exec($cmd, $output, $error);
-
-            if ($error != 0) {
-                $renderer->doc .= '---ERROR CONVERTING DIAGRAM---';
-                   return false;
-            }
-
-            if (file_exists($imagefile)) {
-                unlink($imagefile);
-            }
-
-            if ( !copy($tempfile.'.png', $imagefile) ) {
-                return false;
-            }
-
-            // Remove input file
-            unlink($tempfile.'.png');
-            unlink($tempfile);
-        }
-
-        unlink($tempfile.'.txt');
-
-        // Output Img-Tag
-
-        $width = NULL;
-
-        if ($this->ditaa_width != -1) {
-            $width = $this->ditaa_width;
-        }
-
-        $height = NULL;
-
-        if ($this->ditaa_height != -1) {
-            $height = $this->ditaa_height;
-        }
-
-        $renderer->doc .= $renderer->internalmedia($INFO['namespace'].':ditaa_'.$this->ditaa_name.'_'.$md5.'.png', $this->ditaa_name, NULL, $width, $height, false);
-
-        return true;
-
     }
 
 }
