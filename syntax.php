@@ -6,6 +6,7 @@
  * @license     GPL 2 (http://www.gnu.org/licenses/gpl.html)
  * @author      Dennis Ploeger <develop [at] dieploegers [dot] de>
  * @author      Christoph Mertins <c [dot] mertins [at] gmail [dot] com>
+ * @author      Andreas Gohr <andi@splitbrain.org>
  */
 
 if(!defined('DOKU_INC')) define('DOKU_INC',realpath(dirname(__FILE__).'/../../').'/');
@@ -28,19 +29,6 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
 
     var $tempdir = "/tmp";
 
-    /**
-     * return some info
-     */
-    function getInfo(){
-        return array(
-            'author' => 'Dennis Ploeger',
-            'email'  => 'develop@dieploegers.de',
-            'date'   => '2009-05-19',
-            'name'   => 'Ditaa-Plugin',
-            'desc'   => 'Renders ascii-flowcharts contained in a dokuwiki-page to a png, that is displayed instead',
-            'url'    => 'http://wiki.splitbrain.org/plugin:ditaa',
-        );
-    }
 
     /**
      * What about paragraphs?

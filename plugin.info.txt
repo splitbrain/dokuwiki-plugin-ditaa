@@ -1,0 +1,8 @@
+base    ditaa
+author  Dennis Ploeger
+email   develop@dieploegers.de
+date    2010-04-08
+name    Ditaa-Plugin
+desc    Renders ascii-flowcharts contained in a dokuwiki-page to a png, that is displayed instead
+url     http://www.dokuwiki.org/plugin:ditaa
+
