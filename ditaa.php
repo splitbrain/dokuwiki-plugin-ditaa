@@ -4,7 +4,7 @@
  * @author     Andreas Gohr <gohr@cosmocode.de>
  */
 
-if(!defined('DOKU_INC')) define('DOKU_INC',realpath(dirname(__FILE__).'/../../../').'/');
+if(!defined('DOKU_INC')) define('DOKU_INC',dirname(__FILE__).'/../../../');
 define('NOSESSION',true);
 require_once(DOKU_INC.'inc/init.php');
 require_once(DOKU_INC.'inc/pageutils.php');
