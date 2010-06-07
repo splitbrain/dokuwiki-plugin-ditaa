@@ -150,7 +150,12 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
         exec($cmd, $output, $error);
         @unlink($temp);
 
-        if ($error != 0) return false;
+        if ($error != 0){
+            if($conf['debug']){
+                dbglog(join("\n",$output),'ditaa command failed: '.$cmd);
+            }
+            return false;
+        }
         return true;
     }
 
