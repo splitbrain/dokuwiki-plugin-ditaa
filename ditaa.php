@@ -33,7 +33,8 @@ if($w) $cache = media_resize_image($cache,'png',$w,$h);
 // something went wrong, we're missing the file
 if(!file_exists($cache)){
     header("HTTP/1.0 404 Not Found");
-    echo 'Not Found';
+    header('Content-Type: image/png');
+    echo io_readFile('broken.png',false);
     exit;
 }
 
