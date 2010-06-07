@@ -137,8 +137,9 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
         io_saveFile($temp,$data['data']);
 
         $cmd  = $this->getConf('java');
-        $cmd .= ' -Djava.awt.headless=true -jar';
+        $cmd .= ' -Djava.awt.headless=true -Dfile.encoding=UTF-8 -jar';
         $cmd .= ' '.escapeshellarg(dirname(__FILE__).'/ditaa/ditaa0_9.jar'); //ditaa jar
+        $cmd .= ' --encoding UTF-8';
         $cmd .= ' '.escapeshellarg($temp); //input
         $cmd .= ' '.escapeshellarg($cache); //output
         $cmd .= ' -s '.escapeshellarg($data['scale']);
