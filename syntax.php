@@ -35,7 +35,6 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
         return 200;
     }
 
-
     /**
      * Connect pattern to lexer
      */
@@ -43,8 +42,6 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
     function connectTo($mode) {
         $this->Lexer->addSpecialPattern('<ditaa.*?>\n.*?\n</ditaa>',$mode,'plugin_ditaa');
     }
-
-
 
     /**
      * Handle the match
@@ -54,7 +51,6 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
 
         // prepare default data
         $return = array(
-                        'data'      => '',
                         'width'     => 0,
                         'height'    => 0,
                         'antialias' => true,
@@ -88,7 +84,11 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
             }
         }
 
-        $return['data'] = join("\n",$lines);
+        $input = join("\n",$lines);
+        $return['md5'] = md5($input); // we only pass a hash around
+
+        // store input for later use
+        io_saveFile($this->_cachename($return,'txt'),$input);
 
         return $return;
     }
@@ -98,25 +98,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
      */
     function render($format, &$R, $data) {
         if($format != 'xhtml') return;
-
-        if($this->getConf('java')){
-            // run ditaa on our own server
-            $img = DOKU_BASE.'lib/plugins/ditaa/ditaa.php?'.buildURLparams($data,'&');
-        }else{
-            // use ditaa.org for rendering
-            $pass = array(
-                'grid'  => $data['data'],
-                'scale' => $data['scale']
-            );
-            if(!$data['antialias']) $pass['A'] = 'on';
-            if(!$data['shadow'])    $pass['S'] = 'on';
-            if($data['round'])      $pass['r'] = 'on';
-            if(!$data['edgesep'])   $pass['E'] = 'on';
-            $pass['timeout'] = 25;
-
-            $img = 'http://ditaa.org/ditaa/render?'.buildURLparams($pass,'&');
-            $img = ml($img,array('w'=>$data['width'],'h'=>$data['height']));
-        }
+        $img = DOKU_BASE.'lib/plugins/ditaa/ditaa.php?'.buildURLparams($data,'&');
 
         $R->doc .= '<img src="'.$img.'" class="media'.$data['align'].'" alt=""';
         if($data['width'])  $R->doc .= ' width="'.$data['width'].'"';
@@ -126,22 +108,59 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
         $R->doc .= '/>';
     }
 
+    /**
+     * Cache file is based on data
+     */
+    function _cachename($data,$ext){
+        unset($data['width']);
+        unset($data['height']);
+        unset($data['align']);
+        return getcachename(join('x',array_values($data)),'.ditaa.'.$ext);
+    }
+
+    /**
+     * Render the output remotely at ditaa.org
+     */
+    function _remote($data,$in,$out){
+        $http = new DokuHTTPClient();
+        $http->timeout=30;
+
+        $pass = array();
+        $pass['scale']   = $data['scale'];
+        $pass['timeout'] = 25;
+        $pass['grid']    = io_readFile($in);
+        if(!$data['antialias']) $pass['A'] = 'on';
+        if(!$data['shadow'])    $pass['S'] = 'on';
+        if($data['round'])      $pass['r'] = 'on';
+        if(!$data['edgesep'])   $pass['E'] = 'on';
+
+        $img = $http->post('http://ditaa.org/ditaa/render',$pass);
+        if(!$img) return false;
+
+        io_saveFile($out,$img);
+        return true;
+    }
+
 
     /**
      * Run the ditaa Java program
      */
-    function _run($data,$cache) {
+    function _run($data,$in,$out) {
         global $conf;
 
-        $temp = tempnam($conf['tmpdir'],'ditaa_');
-        io_saveFile($temp,$data['data']);
+        if(!file_exists($in)){
+            if($conf['debug']){
+                dbglog($in,'no such ditaa input file');
+            }
+            return false;
+        }
 
         $cmd  = $this->getConf('java');
         $cmd .= ' -Djava.awt.headless=true -Dfile.encoding=UTF-8 -jar';
         $cmd .= ' '.escapeshellarg(dirname(__FILE__).'/ditaa/ditaa0_9.jar'); //ditaa jar
         $cmd .= ' --encoding UTF-8';
-        $cmd .= ' '.escapeshellarg($temp); //input
-        $cmd .= ' '.escapeshellarg($cache); //output
+        $cmd .= ' '.escapeshellarg($in); //input
+        $cmd .= ' '.escapeshellarg($out); //output
         $cmd .= ' -s '.escapeshellarg($data['scale']);
         if(!$data['antialias']) $cmd .= ' -A';
         if(!$data['shadow'])    $cmd .= ' -S';
@@ -149,7 +168,6 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
         if(!$data['edgesep'])   $cmd .= ' -E';
 
         exec($cmd, $output, $error);
-        @unlink($temp);
 
         if ($error != 0){
             if($conf['debug']){
@@ -157,10 +175,9 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
             }
             return false;
         }
+
         return true;
     }
 
 }
-
-
 

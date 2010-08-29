@@ -18,12 +18,18 @@ unset($data['width']);
 unset($data['height']);
 unset($data['align']);
 
-$cache = getcachename(join('x',array_values($data)),'ditaa.png');
+$plugin = plugin_load('syntax','ditaa');
+$cache  = $plugin->_cachename($data,'png');
 
 // create the file if needed
 if(!file_exists($cache)){
-    $plugin = plugin_load('syntax','ditaa');
-    $plugin->_run($data,$cache);
+    $in = $plugin->_cachename($data,'txt');
+    if($plugin->getConf('java')){
+        $ok = $plugin->_run($data,$in,$cache);
+    }else{
+        $ok = $plugin->_remote($data,$in,$cache);
+    }
+    if(!$ok) _fail();
     clearstatcache();
 }
 
@@ -31,12 +37,7 @@ if(!file_exists($cache)){
 if($w) $cache = media_resize_image($cache,'png',$w,$h);
 
 // something went wrong, we're missing the file
-if(!file_exists($cache)){
-    header("HTTP/1.0 404 Not Found");
-    header('Content-Type: image/png');
-    echo io_readFile('broken.png',false);
-    exit;
-}
+if(!file_exists($cache)) _fail();
 
 header('Content-Type: image/png;');
 header('Expires: '.gmdate("D, d M Y H:i:s", time()+max($conf['cachetime'], 3600)).' GMT');
@@ -44,5 +45,13 @@ header('Cache-Control: public, proxy-revalidate, no-transform, max-age='.max($co
 header('Pragma: public');
 http_conditionalRequest($time);
 echo io_readFile($cache,false);
+
+
+function _fail(){
+    header("HTTP/1.0 404 Not Found");
+    header('Content-Type: image/png');
+    echo io_readFile('broken.png',false);
+    exit;
+}
 
 //Setup VIM: ex: et ts=4 enc=utf-8 :
