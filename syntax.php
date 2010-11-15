@@ -94,22 +94,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
     }
 
     /**
-     * Create output
-     */
-    function render($format, &$R, $data) {
-        if($format != 'xhtml') return;
-        $img = DOKU_BASE.'lib/plugins/ditaa/ditaa.php?'.buildURLparams($data,'&');
-
-        $R->doc .= '<img src="'.$img.'" class="media'.$data['align'].'" alt=""';
-        if($data['width'])  $R->doc .= ' width="'.$data['width'].'"';
-        if($data['height']) $R->doc .= ' height="'.$data['height'].'"';
-        if($data['align'] == 'right') $ret .= ' align="right"';
-        if($data['align'] == 'left')  $ret .= ' align="left"';
-        $R->doc .= '/>';
-    }
-
-    /**
-     * Cache file is based on data
+     * Cache file is based on parameters that influence the result image
      */
     function _cachename($data,$ext){
         unset($data['width']);
@@ -119,9 +104,67 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
     }
 
     /**
+     * Create output
+     */
+    function render($format, &$R, $data) {
+        if($format == 'xhtml'){
+            $img = DOKU_BASE.'lib/plugins/ditaa/img.php?'.buildURLparams($data);
+            $R->doc .= '<img src="'.$img.'" class="media'.$data['align'].'" alt=""';
+            if($data['width'])  $R->doc .= ' width="'.$data['width'].'"';
+            if($data['height']) $R->doc .= ' height="'.$data['height'].'"';
+            if($data['align'] == 'right') $ret .= ' align="right"';
+            if($data['align'] == 'left')  $ret .= ' align="left"';
+            $R->doc .= '/>';
+            return true;
+        }elseif($format == 'odt'){
+            $src = $this->_imgfile($data);
+            $R->_odtAddImage($src,$data['width'],$data['height'],$data['align']);
+            return true;
+        }
+        return false;
+    }
+
+
+    /**
+     * Return path to the rendered image on our local system
+     */
+    function _imgfile($data){
+        $cache  = $this->_cachename($data,'png');
+
+        // create the file if needed
+        if(!file_exists($cache)){
+            $in = $this->_cachename($data,'txt');
+            if($this->getConf('java')){
+                $ok = $this->_run($data,$in,$cache);
+            }else{
+                $ok = $this->_remote($data,$in,$cache);
+            }
+            if(!$ok) return false;
+            clearstatcache();
+        }
+
+        // resized version
+        if($data['width']){
+            $cache = media_resize_image($cache,'png',$data['width'],$data['height']);
+        }
+
+        // something went wrong, we're missing the file
+        if(!file_exists($cache)) return false;
+
+        return $cache;
+    }
+
+    /**
      * Render the output remotely at ditaa.org
      */
     function _remote($data,$in,$out){
+        if(!file_exists($in)){
+            if($conf['debug']){
+                dbglog($in,'no such ditaa input file');
+            }
+            return false;
+        }
+
         $http = new DokuHTTPClient();
         $http->timeout=30;
 
@@ -137,10 +180,8 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
         $img = $http->post('http://ditaa.org/ditaa/render',$pass);
         if(!$img) return false;
 
-        io_saveFile($out,$img);
-        return true;
+        return io_saveFile($out,$img);
     }
-
 
     /**
      * Run the ditaa Java program
