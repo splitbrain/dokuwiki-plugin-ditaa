@@ -94,25 +94,25 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
         return $return;
     }
 
-	/**
-	 * Prepares the Data that is used for the cache name
-	 * Width, height and scale are left out.
-	 * Ensures sanity.
-	 */    
+    /**
+     * Prepares the Data that is used for the cache name
+     * Width, height and scale are left out.
+     * Ensures sanity.
+     */    
     function _prepareData($input)
     {
-    	$output = array();
-    	foreach( $input as $key => $value ) {
-	    	switch ($key) {
-		    	case 'scale':
-		    	case 'antialias':
-		    	case 'edgesep':
-		    	case 'round':
-		    	case 'shadow':
-		    	case 'md5':
-		    		$output[$key] = $value;
-	    	};
-    	}
+        $output = array();
+        foreach( $input as $key => $value ) {
+            switch ($key) {
+                case 'scale':
+                case 'antialias':
+                case 'edgesep':
+                case 'round':
+                case 'shadow':
+                case 'md5':
+                    $output[$key] = $value;
+            };
+        }
     }
 
     /**
