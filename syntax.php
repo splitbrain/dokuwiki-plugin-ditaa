@@ -5,6 +5,7 @@
  * @license     GPL 2 (http://www.gnu.org/licenses/gpl.html)
  * @author      Dennis Ploeger <develop [at] dieploegers [dot] de>
  * @author      Christoph Mertins <c [dot] mertins [at] gmail [dot] com>
+ * @author      Gerry Weißbach / i-net software <tools [at] inetsoftware [dot] de>
  * @author      Andreas Gohr <andi@splitbrain.org>
  */
 
@@ -93,13 +94,32 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
         return $return;
     }
 
+	/**
+	 * Prepares the Data that is used for the cache name
+	 * Width, height and scale are left out.
+	 * Ensures sanity.
+	 */    
+    function _prepareData($input)
+    {
+    	$output = array();
+    	foreach( $input as $key => $value ) {
+	    	switch ($key) {
+		    	case 'scale':
+		    	case 'antialias':
+		    	case 'edgesep':
+		    	case 'round':
+		    	case 'shadow':
+		    	case 'md5':
+		    		$output[$key] = $value;
+	    	};
+    	}
+    }
+
     /**
      * Cache file is based on parameters that influence the result image
      */
     function _cachename($data,$ext){
-        unset($data['width']);
-        unset($data['height']);
-        unset($data['align']);
+		$data = $this->_prepareData($data);
         return getcachename(join('x',array_values($data)),'.ditaa.'.$ext);
     }
 
