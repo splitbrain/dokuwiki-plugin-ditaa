@@ -60,7 +60,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
                         'shadow'    => true,
                         'scale'     => 1,
                         'align'     => '',
-                        'version'   => $info['date'], //forece rebuild of images on update
+                        'version'   => $info['date'], //force rebuild of images on update
                        );
 
 
@@ -90,7 +90,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
 
         // store input for later use
         io_saveFile($this->_cachename($return,'txt'),$input);
-
+        
         return $return;
     }
 
@@ -109,10 +109,12 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
                 case 'edgesep':
                 case 'round':
                 case 'shadow':
-                case 'md5':
                     $output[$key] = $value;
             };
         }
+
+        ksort($output);
+        return $output;
     }
 
     /**
@@ -127,8 +129,11 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
      * Create output
      */
     function render($format, &$R, $data) {
+        global $ID;
         if($format == 'xhtml'){
-            $img = DOKU_BASE.'lib/plugins/ditaa/img.php?'.buildURLparams($data);
+
+            // Only use the md5 key
+            $img = ml($ID, array('ditaa' => $data['md5']));
             $R->doc .= '<img src="'.$img.'" class="media'.$data['align'].'" alt=""';
             if($data['width'])  $R->doc .= ' width="'.$data['width'].'"';
             if($data['height']) $R->doc .= ' height="'.$data['height'].'"';
@@ -136,9 +141,13 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
             if($data['align'] == 'left')  $R->doc .= ' align="left"';
             $R->doc .= '/>';
             return true;
-        }elseif($format == 'odt'){
+        }else if($format == 'odt'){
             $src = $this->_imgfile($data);
             $R->_odtAddImage($src,$data['width'],$data['height'],$data['align']);
+            return true;
+        }else if($format == 'metadata'){
+            // Save for later use
+            $R->meta['ditaa'][$data['md5']] = $data;
             return true;
         }
         return false;
@@ -148,12 +157,19 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
     /**
      * Return path to the rendered image on our local system
      */
-    function _imgfile($data){
+    function _imgfile($id, $data, $secondTry=false){
+        
         $cache  = $this->_cachename($data,'png');
-
+        
         // create the file if needed
         if(!file_exists($cache)){
             $in = $this->_cachename($data,'txt');
+            // If this is nt yet here, force geting instructions and writing the thing back.
+            if ( $secondTry != true && !file_exists($in)) {
+                p_get_instructions( io_readFile( wikiFN( $id) ) );
+                return $this->_imgfile($id, $data, true);
+            }
+            
             if($this->getConf('java')){
                 $ok = $this->_run($data,$in,$cache);
             }else{
