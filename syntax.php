@@ -5,6 +5,7 @@
  * @license     GPL 2 (http://www.gnu.org/licenses/gpl.html)
  * @author      Dennis Ploeger <develop [at] dieploegers [dot] de>
  * @author      Christoph Mertins <c [dot] mertins [at] gmail [dot] com>
+ * @author      Gerry Weißbach / i-net software <tools [at] inetsoftware [dot] de>
  * @author      Andreas Gohr <andi@splitbrain.org>
  */
 
@@ -59,7 +60,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
                         'shadow'    => true,
                         'scale'     => 1,
                         'align'     => '',
-                        'version'   => $info['date'], //forece rebuild of images on update
+                        'version'   => $info['date'], //force rebuild of images on update
                        );
 
 
@@ -89,17 +90,38 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
 
         // store input for later use
         io_saveFile($this->_cachename($return,'txt'),$input);
-
+        
         return $return;
+    }
+
+    /**
+     * Prepares the Data that is used for the cache name
+     * Width, height and scale are left out.
+     * Ensures sanity.
+     */    
+    function _prepareData($input)
+    {
+        $output = array();
+        foreach( $input as $key => $value ) {
+            switch ($key) {
+                case 'scale':
+                case 'antialias':
+                case 'edgesep':
+                case 'round':
+                case 'shadow':
+                    $output[$key] = $value;
+            };
+        }
+
+        ksort($output);
+        return $output;
     }
 
     /**
      * Cache file is based on parameters that influence the result image
      */
     function _cachename($data,$ext){
-        unset($data['width']);
-        unset($data['height']);
-        unset($data['align']);
+		$data = $this->_prepareData($data);
         return getcachename(join('x',array_values($data)),'.ditaa.'.$ext);
     }
 
@@ -107,8 +129,11 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
      * Create output
      */
     function render($format, &$R, $data) {
+        global $ID;
         if($format == 'xhtml'){
-            $img = DOKU_BASE.'lib/plugins/ditaa/img.php?'.buildURLparams($data);
+
+            // Only use the md5 key
+            $img = ml($ID, array('ditaa' => $data['md5']));
             $R->doc .= '<img src="'.$img.'" class="media'.$data['align'].'" alt=""';
             if($data['width'])  $R->doc .= ' width="'.$data['width'].'"';
             if($data['height']) $R->doc .= ' height="'.$data['height'].'"';
@@ -116,9 +141,13 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
             if($data['align'] == 'left')  $R->doc .= ' align="left"';
             $R->doc .= '/>';
             return true;
-        }elseif($format == 'odt'){
+        }else if($format == 'odt'){
             $src = $this->_imgfile($data);
             $R->_odtAddImage($src,$data['width'],$data['height'],$data['align']);
+            return true;
+        }else if($format == 'metadata'){
+            // Save for later use
+            $R->meta['ditaa'][$data['md5']] = $data;
             return true;
         }
         return false;
@@ -128,12 +157,19 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
     /**
      * Return path to the rendered image on our local system
      */
-    function _imgfile($data){
+    function _imgfile($id, $data, $secondTry=false){
+        
         $cache  = $this->_cachename($data,'png');
-
+        
         // create the file if needed
         if(!file_exists($cache)){
             $in = $this->_cachename($data,'txt');
+            // If this is nt yet here, force geting instructions and writing the thing back.
+            if ( $secondTry != true && !file_exists($in)) {
+                p_get_instructions( io_readFile( wikiFN( $id) ) );
+                return $this->_imgfile($id, $data, true);
+            }
+            
             if($this->getConf('java')){
                 $ok = $this->_run($data,$in,$cache);
             }else{
