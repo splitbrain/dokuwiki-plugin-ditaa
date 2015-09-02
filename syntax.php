@@ -6,6 +6,7 @@
  * @author      Dennis Ploeger <develop [at] dieploegers [dot] de>
  * @author      Christoph Mertins <c [dot] mertins [at] gmail [dot] com>
  * @author      Gerry Weißbach / i-net software <tools [at] inetsoftware [dot] de>
+ * @author      Christian Marg <marg@rz.tu-clausthal.de>
  * @author      Andreas Gohr <andi@splitbrain.org>
  */
 
@@ -109,6 +110,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
                 case 'edgesep':
                 case 'round':
                 case 'shadow':
+                case 'md5':
                     $output[$key] = $value;
             };
         }
