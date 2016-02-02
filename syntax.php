@@ -48,7 +48,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
     /**
      * Handle the match
      */
-    function handle($match, $state, $pos, &$handler) {
+    function handle($match, $state, $pos, Doku_Handler $handler) {
         $info = $this->getInfo();
 
         // prepare default data
@@ -130,7 +130,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
     /**
      * Create output
      */
-    function render($format, &$R, $data) {
+    function render($format, Doku_Renderer $R, $data) {
         global $ID;
         if($format == 'xhtml'){
 
