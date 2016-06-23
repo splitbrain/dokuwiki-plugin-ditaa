@@ -91,7 +91,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
 
         // store input for later use
         io_saveFile($this->_cachename($return,'txt'),$input);
-        
+
         return $return;
     }
 
@@ -99,7 +99,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
      * Prepares the Data that is used for the cache name
      * Width, height and scale are left out.
      * Ensures sanity.
-     */    
+     */
     function _prepareData($input)
     {
         $output = array();
@@ -160,9 +160,9 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
      * Return path to the rendered image on our local system
      */
     function _imgfile($id, $data, $secondTry=false){
-        
+
         $cache  = $this->_cachename($data,'png');
-        
+
         // create the file if needed
         if(!file_exists($cache)){
             $in = $this->_cachename($data,'txt');
@@ -171,9 +171,9 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
                 p_get_instructions( io_readFile( wikiFN( $id) ) );
                 return $this->_imgfile($id, $data, true);
             }
-            
+
             if($this->getConf('java')){
-                $ok = $this->_run($data,$in,$cache);
+                $ok = $this->_runGo($data,$in,$cache);
             }else{
                 $ok = $this->_remote($data,$in,$cache);
             }
@@ -196,6 +196,8 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
      * Render the output remotely at ditaa.org
      */
     function _remote($data,$in,$out){
+        global $conf;
+
         if(!file_exists($in)){
             if($conf['debug']){
                 dbglog($in,'no such ditaa input file');
@@ -245,6 +247,35 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
         if(!$data['shadow'])    $cmd .= ' -S';
         if($data['round'])      $cmd .= ' -r';
         if(!$data['edgesep'])   $cmd .= ' -E';
+
+        exec($cmd, $output, $error);
+
+        if ($error != 0){
+            if($conf['debug']){
+                dbglog(join("\n",$output),'ditaa command failed: '.$cmd);
+            }
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Run the ditaa Go program
+     */
+    function _runGo($data,$in,$out) {
+        global $conf;
+
+        if(!file_exists($in)){
+            if($conf['debug']){
+                dbglog($in,'no such ditaa input file');
+            }
+            return false;
+        }
+
+        $cmd  = __DIR__ . '/bin/ditaa-linux-amd64';
+        $cmd .= ' '.escapeshellarg($in); //input
+        $cmd .= ' '.escapeshellarg($out); //output
 
         exec($cmd, $output, $error);
 
