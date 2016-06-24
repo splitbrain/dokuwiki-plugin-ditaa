@@ -233,7 +233,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
 
         $cmd = $this->getConf('java');
         $cmd .= ' -Djava.awt.headless=true -Dfile.encoding=UTF-8 -jar';
-        $cmd .= ' ' . escapeshellarg(dirname(__FILE__) . '/ditaa/ditaa0_9.jar'); //ditaa jar
+        $cmd .= ' ' . escapeshellarg(__DIR__ . '/ditaa/ditaa.jar');
         $cmd .= ' --encoding UTF-8';
         $cmd .= ' ' . escapeshellarg($in); //input
         $cmd .= ' ' . escapeshellarg($out); //output
