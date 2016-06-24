@@ -353,7 +353,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
 
         if(file_exists($cache)) return $cache;
 
-        $url = 'https://github.com/splitbrain/dokuwiki-plugin-ditaa/raw/bins/' . $bin;
+        $url = 'https://github.com/akavel/ditaa/releases/download/g1.0.0/' . $bin;
         if(io_download($url, $cache, false, '', 0)) {
             @chmod($cache, $conf['dmode']);
             return $cache;
