@@ -72,7 +72,8 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
             'shadow' => true,
             'scale' => 1,
             'align' => '',
-            'version' => $info['date'], //force rebuild of images on update
+            'version' => $info['date'],
+            'now' => time()
         );
 
         // prepare input
@@ -97,7 +98,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
         }
 
         $input = join("\n", $lines);
-        $return['md5'] = md5($input); // we only pass a hash around
+        $return['md5'] = md5($input.$this->_prepareData($return)); // we only pass a hash around
 
         // store input for later use in _imagefile()
         io_saveFile(getCacheName($return['md5'], '.ditaa.txt'), $input);
@@ -118,7 +119,7 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
         global $ID;
         if($format == 'xhtml') {
             // Only use the md5 key
-            $img = ml($ID, array('ditaa' => $data['md5']));
+            $img = ml($ID, array('ditaa' => $data['md5'], 't' => $data['now']));
             $R->doc .= '<img src="' . $img . '" class="media' . $data['align'] . '" alt=""';
             if($data['width']) $R->doc .= ' width="' . $data['width'] . '"';
             if($data['height']) $R->doc .= ' height="' . $data['height'] . '"';
@@ -133,6 +134,28 @@ class syntax_plugin_ditaa extends DokuWiki_Syntax_Plugin {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Prepares the Data that is used for the cache name
+     * Width, height and scale are left out.
+     * Ensures sanity.
+     */
+    protected function _prepareData($input) {
+        $output = array();
+        foreach($input as $key => $value) {
+            switch($key) {
+                case 'scale':
+                case 'antialias':
+                case 'edgesep':
+                case 'round':
+                case 'shadow':
+                case 'version':
+                    $output[$key] = $value;
+            };
+        }
+        ksort($output);
+        return $output;
     }
 
     /**
