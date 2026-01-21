@@ -1,6 +1,6 @@
 <?php
 /**
- * Siteexport SendFile Plugin
+ * Ditaa Plugin - Action Component
  *
  * @license    GPL 2 (http://www.gnu.org/licenses/gpl.html)
  * @author     i-net software <tools@inetsoftware.de>
@@ -10,8 +10,6 @@
 // must be run within Dokuwiki
 if(!defined('DOKU_INC')) die();
 if(!defined('DOKU_PLUGIN')) define('DOKU_PLUGIN', DOKU_INC . 'lib/plugins/');
-
-require_once(DOKU_PLUGIN . 'action.php');
 
 /**
  * Class action_plugin_ditaa
